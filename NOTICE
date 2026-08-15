@@ -1,0 +1,48 @@
+# NOTICE
+
+dsh-devtools — third-party provenance record.
+
+## Third-party build code
+
+The file `tsdown.config.ts` is a minimal adaptation of the DeepSeek Harness
+web build preset `packages/client/tsdown.client.ts` (plus the platform-module
+table from `packages/client/web-platform.ts`), originally authored by
+DeepSeek (Hangzhou) Innovation Technology Co., Ltd. and distributed under the
+MIT License from the `deepseek-ai/deepseek-harness` repository. The same
+preset was mirrored by the dsh-web-ui repository (`shared/tsdown.client.ts`,
+Apache-2.0) from which this standalone adaptation is derived.
+
+The adaptation keeps only the functionality dsh-devtools requires (node ESM
+library, browser CJS client bundle, module-table externals, CSS Modules
+inlining with reproducible hashes, sourcemaps, bundle purity gate); mobile
+bundles, generic build faces, and workspace-only behavior are removed.
+
+MIT License terms (deepseek-ai/deepseek-harness):
+
+  Copyright (c) 2025 DeepSeek (Hangzhou) Innovation Technology Co., Ltd.
+
+  Permission is hereby granted, free of charge, to any person obtaining a
+  copy of this software and associated documentation files (the "Software"),
+  to deal in the Software without restriction, including without limitation
+  the rights to use, copy, modify, merge, publish, distribute, sublicense,
+  and/or sell copies of the Software, and to permit persons to whom the
+  Software is furnished to do so, subject to the following conditions:
+
+  The above copyright notice and this permission notice shall be included in
+  all copies or substantial portions of the Software.
+
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+  DEALINGS IN THE SOFTWARE.
+
+## npm package contents
+
+The published npm package (dsh-devtools@0.1.0) contains no third-party
+source files: all shipped files are original dsh-devtools code or generated
+build artifacts (lib/). The runtime bundles reference DeepSeek Harness
+peer APIs (`@deepseek-ai/*`) as externals resolved by the Harness runtime,
+and inline CSS from the plugin's own stylesheet.

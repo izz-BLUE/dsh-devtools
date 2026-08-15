@@ -137,11 +137,12 @@ dsh web
 
 ```bash
 # 1. 在仓库内构建
-pnpm --filter dsh-devtools build
+pnpm install
+pnpm build
 
 # 2. 加入 web profile（file: 依赖）
 cd ~/.dsh/profiles/web
-pnpm add "dsh-devtools@file:<本仓库绝对路径>/packages/dsh-devtools"
+pnpm add "dsh-devtools@file:<本仓库绝对路径>"
 # 并在 package.json 的 dsh.profile.bundles 追加 "dsh-devtools"
 
 # 3. 重启 dsh web
@@ -150,9 +151,11 @@ pnpm add "dsh-devtools@file:<本仓库绝对路径>/packages/dsh-devtools"
 ## 6. Development
 
 ```bash
-pnpm --filter dsh-devtools typecheck
-pnpm --filter dsh-devtools test
-pnpm --filter dsh-devtools build
+pnpm install
+pnpm typecheck
+pnpm test
+pnpm build
+pnpm pack
 ```
 
 ## 7. Known limitations
