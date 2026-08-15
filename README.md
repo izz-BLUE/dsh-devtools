@@ -1,6 +1,8 @@
 # dsh-devtools
 
-Read-only runtime observability for DeepSeek Harness agents.
+Metadata-first runtime profiler for DeepSeek Harness agents.
+
+GitHub: <https://github.com/izz-BLUE/dsh-devtools> · Issues: <https://github.com/izz-BLUE/dsh-devtools/issues>
 
 一个社区（community）插件：把会话的持久化事件日志折叠成 **Agent Runtime Profiler**，
 在 Web GUI 的会话视图里以 DevTools 标签页展示每次模型调用（Step）与回合（Turn）的
@@ -176,7 +178,7 @@ pnpm pack
 
 ## 8. Compatibility
 
-Verified against DeepSeek Harness `v0.1.0-rc.6`（npm 版，web profile 挂载实测；
+Verified with DeepSeek Harness `v0.1.0-rc.6`（npm 版，web profile 挂载实测；
 真实会话 E2E 通过）。其他版本未验证。
 
 ## License
