@@ -1,7 +1,7 @@
 {
   "name": "dsh-devtools",
   "description": "DevTools for DeepSeek Harness web: read-only Agent Runtime Trace — turn/step execution timeline, model latency (TTFT/decode), tool-call durations, retries, hook and turn end reasons. Metadata-first, durable events only, zero behavior modification.",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "module",
   "packageManager": "pnpm@11.7.0",
   "engines": {

@@ -38,8 +38,9 @@ GitHub: <https://github.com/izz-BLUE/dsh-devtools> · Issues: <https://github.co
   cache reuse = `cacheRead / (input + cacheRead)`（内部派生指标，非 Provider 官方缓存命中率）
 - **回合结局**：`completed` / `aborted` / `interrupted` / `error` / `max-tokens` / `blocked`
   等 `turn/end.reason` 的正确映射；Turn 级结局与 Step 状态、工具错误分开统计
-- **trace completeness**：顶部横幅显示 `Trace complete`；发生 ring 淘汰时显示
-  `Partial trace · N earlier steps omitted`，不把截断后的页面伪装成完整历史
+- **trace completeness**：顶部状态指示显示 `Trace complete`（低调绿色圆点）；
+  发生 ring 淘汰时升级为橙色 `Partial trace · N earlier steps omitted`，
+  不把截断后的页面伪装成完整历史
 - **live session 与 cold/history session**：内存日志增量折叠；持久化会话从落盘日志重建
 - **subagent metadata**：subagent 会话的 label / mode / agentModel
 - **hook trace**：`hook/invoked|hook/result` 事件存在时展示执行耗时与错误标记；
@@ -107,6 +108,8 @@ DevTools 拥有独立宽布局（不受聊天阅读宽度限制，自适应桌�
   Tool Wall / Avg First Activity / Throughput / Cache Reuse；窄屏自动隐藏次要指标
 - **Summary 三组**：Execution / Performance / Tokens（见 What it does）
 - **逐 Turn 卡片**：结局徽章 + 步骤数 + 工具数 + 耗时，可折叠/展开
+- **Turn-level sticky timeline ruler**：展开长 Turn 滚动时时间刻度保持可见，
+  与每 Step 的全局时间网格严格对齐（自适应 nice interval + tick 标签）
 - **逐 Step 行**：状态、模型、TTFT / model / decode / wall、usage、
   runtime timeline 时长条、工具 chips、retry chips
 - **hook 执行表**：有事件时展示，无事件时显示语义空状态
