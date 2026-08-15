@@ -286,6 +286,86 @@ export function barGeometry(start: number, end: number, tMin: number, tMax: numb
   return { leftPct: left, widthPct: Math.max(rawWidth, Math.min(MIN_BAR_FRACTION * 100, 100 - left)) }
 }
 
+/**
+ * Horizontal position (0-100) of an absolute time on the [tMin, tMax]
+ * track, used by the turn ruler and every step grid line so they stay
+ * pixel-aligned. Degenerate tracks (tMax <= tMin) fall back to a 1ms
+ * track instead of dividing by zero.
+ */
+export function trackPct(at: number, tMin: number, tMax: number): number {
+  const spanMax = tMax > tMin ? tMax : tMin + 1
+  const span = Math.max(0, spanMax - tMin)
+  return span > 0 ? ((at - tMin) / span) * 100 : 0
+}
+
+/* ------------------------------------------------------------------ */
+/* Timeline time scale (ruler ticks + grid)                            */
+/* ------------------------------------------------------------------ */
+
+/** Candidate tick intervals in ms, from sub-second to long sessions. */
+const TICK_STEP_MS = [
+  250, 500, 1_000, 2_000, 5_000, 10_000, 15_000, 30_000,
+  60_000, 120_000, 300_000, 600_000, 1_800_000, 3_600_000,
+] as const
+
+/** Target tick count cap before the ruler steps up to the next interval. */
+export const MAX_TIMELINE_TICKS = 8
+
+/**
+ * Pick the smallest "nice" tick interval (ms) whose tick count on a
+ * `durationMs`-long span stays within `maxTicks`. Degenerate or missing
+ * durations yield 0, so callers can skip the ruler/grid entirely.
+ */
+export function niceTickIntervalMs(durationMs: number, maxTicks = MAX_TIMELINE_TICKS): number {
+  if (!Number.isFinite(durationMs) || durationMs <= 0 || maxTicks < 1) return 0
+  for (const step of TICK_STEP_MS) {
+    if (Math.ceil(durationMs / step) <= maxTicks) return step
+  }
+  let step = TICK_STEP_MS[TICK_STEP_MS.length - 1]
+  while (Math.ceil(durationMs / step) > maxTicks) step *= 2
+  return step
+}
+
+/** One ruler tick: absolute time and its offset label. */
+export interface TimelineTick {
+  readonly at: number
+  readonly label: string
+}
+
+/** Format a ruler label for an offset (ms) given the tick interval.
+ * The origin always reads "0s" regardless of the interval unit, matching
+ * the relative-ruler convention; later offsets use the interval's unit. */
+export function tickLabel(offsetMs: number, intervalMs: number): string {
+  if (offsetMs === 0) return '0s'
+  if (intervalMs < 1_000) return `${offsetMs}ms`
+  if (intervalMs < 60_000) {
+    const sec = offsetMs / 1_000
+    return `${sec.toFixed(Number.isInteger(sec) ? 0 : 1)}s`
+  }
+  const m = Math.floor(offsetMs / 60_000)
+  const s = Math.round((offsetMs % 60_000) / 1_000)
+  return s === 0 ? `${m}m` : `${m}m${s}s`
+}
+
+/**
+ * Absolute tick positions across [tMin, tMax] at a nice interval derived
+ * from the span, anchored at tMin so the ruler always starts at the 0
+ * offset, with labels relative to tMin. Empty when the span is degenerate
+ * or missing. Times are integer ms, so the loop stays exact.
+ */
+export function timelineTicks(tMin: number, tMax: number, maxTicks = MAX_TIMELINE_TICKS): readonly TimelineTick[] {
+  const duration = tMax - tMin
+  const interval = niceTickIntervalMs(duration, maxTicks)
+  if (interval <= 0 || !Number.isFinite(tMin)) return []
+  const out: TimelineTick[] = []
+  for (let i = 0; i <= maxTicks; i++) {
+    const at = tMin + i * interval
+    if (at > tMax + 0.5) break
+    out.push({ at, label: tickLabel(at - tMin, interval) })
+  }
+  return out
+}
+
 /* ------------------------------------------------------------------ */
 /* Turn folding                                                        */
 /* ------------------------------------------------------------------ */

@@ -1,10 +1,10 @@
 /**
  * DevTools view styles — DSH design tokens only (--dsw-*), no framework.
  *
- * V0.1.1 Profiler UX: wide layout, summary groups, timeline bars, sticky
- * status bar, and a strong-but-themed background mask so the profiler stays
- * readable over high-detail user wallpapers (skin-independent: tokens only,
- * no skin coupling).
+ * V0.1.2 density pass: compact step rows, time-scaled step timelines
+ * (adaptive ruler ticks + faint grid), scannable turn headers, value-first
+ * summary groups, semantic status colors and a composer-height bottom safe
+ * area. All layout stays token-driven (skin-independent) and responsive.
  *
  * @module dsh-devtools/client/devtools.module.css
  */
@@ -16,12 +16,15 @@
   color: var(--dsw-alias-label-primary);
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
   margin: 0 auto;
   /* Wide but bounded: use most of the viewport on desktop, fall back to a
      single readable column on narrow windows (clamp handles both). */
   max-width: clamp(680px, calc(100vw - 48px), 1720px);
-  padding: 16px clamp(16px, 3vw, 40px) 48px;
+  /* Bottom safe area clears the sticky composer: reuse the host geometry
+     variable (set on the conversation scroller), with the same fallback the
+     host itself uses for its own bottom-anchored chrome. */
+  padding: 12px clamp(16px, 3vw, 40px) calc(var(--dsh-composer-height, 152px) + 24px);
   width: 100%;
   /* Readability mask over high-detail backgrounds. Theme tokens only;
      never overrides the user background, just softens what is behind. */
@@ -30,6 +33,15 @@
   border-radius: 14px;
   -webkit-backdrop-filter: blur(10px) saturate(1.15);
   backdrop-filter: blur(10px) saturate(1.15);
+  /* Sticky geometry for the turn ruler, derived from the status bar's own
+     metrics (sticky top + computed height) plus a breathing gap — not
+     machine-specific magic numbers. */
+  --devtools-statusbar-top: 8px;
+  --devtools-statusbar-h: calc(18px + 10px + 2px); /* line-height + padding + border */
+  --devtools-ruler-top: calc(var(--devtools-statusbar-top) + var(--devtools-statusbar-h) + 4px);
+  /* Ruler horizontal inset so its ticks align with every step grid:
+     step padding (12px) + timeline border (1px) + timeline padding (2px). */
+  --devtools-ruler-inset-x: 15px;
 }
 
 .empty {
@@ -74,9 +86,9 @@
   font-size: 11px;
   gap: 4px 14px;
   line-height: 18px;
-  padding: 6px 12px;
+  padding: 5px 12px;
   position: sticky;
-  top: 8px;
+  top: var(--devtools-statusbar-top);
   z-index: 20;
   -webkit-backdrop-filter: blur(10px);
   backdrop-filter: blur(10px);
@@ -111,24 +123,32 @@
   }
 }
 
-/* ---- trace completeness banner ---- */
+/* ---- trace completeness (quiet when complete, loud when partial) ---- */
 
-.banner {
-  border-radius: 8px;
+.traceStatus {
+  align-items: center;
+  color: var(--dsw-alias-label-tertiary);
+  display: inline-flex;
   font-size: 11px;
-  font-weight: 600;
+  gap: 5px;
   line-height: 18px;
-  padding: 4px 10px;
 }
 
-.bannerFull {
+.traceDot {
   background: var(--dsw-static-green-500, #30a46c);
-  color: #fff;
+  border-radius: 50%;
+  flex: none;
+  height: 6px;
+  width: 6px;
 }
 
-.bannerPartial {
+.traceStatusPartial {
+  color: var(--dsw-static-orange-500, #f76b15);
+  font-weight: 600;
+}
+
+.traceStatusPartial .traceDot {
   background: var(--dsw-static-orange-500, #f76b15);
-  color: #fff;
 }
 
 /* ---- session metadata ---- */
@@ -146,7 +166,7 @@
   color: var(--dsw-alias-label-secondary);
   font-size: 11px;
   line-height: 18px;
-  padding: 2px 8px;
+  padding: 1px 8px;
 }
 
 .metaChip b {
@@ -188,10 +208,10 @@
   font-size: 12px;
   font-weight: 600;
   line-height: 20px;
-  padding: 8px 12px;
+  padding: 6px 12px;
 }
 
-/* ---- aggregates ---- */
+/* ---- aggregates (value-first hierarchy) ---- */
 
 .statsGrid {
   display: grid;
@@ -209,29 +229,31 @@
   background: var(--dsw-specific-menu, var(--dsw-alias-bg-base, transparent));
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  padding: 8px 10px;
+  gap: 1px;
+  padding: 6px 10px 7px;
 }
 
+/* core number dominates; label recedes to a caption */
 .statLabel {
   color: var(--dsw-alias-label-tertiary);
-  font-size: 10px;
-  line-height: 14px;
+  font-size: 9px;
+  line-height: 12px;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.05em;
 }
 
 .statValue {
-  font-size: 15px;
+  color: var(--dsw-alias-label-primary);
+  font-size: 18px;
   font-variant-numeric: tabular-nums;
-  font-weight: 600;
-  line-height: 20px;
+  font-weight: 700;
+  line-height: 22px;
 }
 
 .statSub {
   color: var(--dsw-alias-label-tertiary);
-  font-size: 10px;
-  line-height: 14px;
+  font-size: 9px;
+  line-height: 12px;
 }
 
 /* ---- cards / turns ---- */
@@ -239,7 +261,10 @@
 .card {
   border: 1px solid var(--dsw-alias-border-l3);
   border-radius: 12px;
-  overflow: hidden;
+  /* clip (not hidden) keeps the rounded corners trimmed without creating a
+     scroll container, so the turn ruler can stay sticky to the page
+     scroller instead of being pinned inside the card. */
+  overflow: clip;
 }
 
 .cardTitle {
@@ -247,7 +272,7 @@
   font-size: 12px;
   font-weight: 600;
   line-height: 20px;
-  padding: 10px 14px;
+  padding: 8px 14px;
   border-bottom: 1px solid var(--dsw-alias-border-l3);
   background: var(--dsw-alias-interactive-bg-hover);
 }
@@ -255,16 +280,17 @@
 .turns {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
 }
 
+/* Turn header: number first, status second, metadata, duration pinned right. */
 .turnHeader {
   align-items: center;
   cursor: pointer;
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  padding: 10px 14px;
+  padding: 7px 12px;
   border-bottom: 1px solid var(--dsw-alias-border-l3);
   background: var(--dsw-alias-interactive-bg-hover);
   user-select: none;
@@ -283,11 +309,11 @@
   border-left: 4px solid var(--dsw-alias-label-tertiary);
   border-bottom: 4px solid var(--dsw-alias-label-tertiary);
   box-sizing: border-box;
-  height: 8px;
+  height: 7px;
   margin: 0 2px;
   transform: rotate(-45deg);
   transition: transform 0.12s ease;
-  width: 8px;
+  width: 7px;
 }
 
 .chevronOpen {
@@ -297,7 +323,7 @@
 .turnTitle {
   color: var(--dsw-alias-label-primary);
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 700;
   line-height: 20px;
 }
 
@@ -308,14 +334,30 @@
   line-height: 18px;
 }
 
-.turnDetail {
+.turnDur {
+  color: var(--dsw-alias-label-primary);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  line-height: 18px;
+  margin-left: auto;
+  white-space: nowrap;
+}
+
+/* Secondary area for termination reason / error detail (not mixed into
+   the main metadata run). */
+.turnDetailLine {
   color: var(--dsw-alias-label-tertiary);
   font-size: 11px;
-  line-height: 18px;
-  max-width: 40%;
+  line-height: 16px;
   overflow: hidden;
+  padding: 3px 12px 5px;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.turnDetailLineError {
+  color: var(--dsw-static-red-500, #e5484d);
 }
 
 .steps {
@@ -323,9 +365,11 @@
   flex-direction: column;
 }
 
+/* ---- compact step rows ---- */
+
 .step {
   border-bottom: 1px solid var(--dsw-alias-border-l2);
-  padding: 8px 14px;
+  padding: 4px 12px;
 }
 
 .step:last-child {
@@ -336,70 +380,138 @@
   background: color-mix(in srgb, var(--dsw-static-blue-500, #0091ff) 6%, transparent);
 }
 
+/* single-line header: model truncates, time/duration stay right */
 .stepHead {
   align-items: center;
   display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
+  gap: 6px;
+  min-width: 0;
+  white-space: nowrap;
 }
 
 .stepId {
   color: var(--dsw-alias-label-secondary);
-  font-size: 12px;
+  font-size: 11px;
   font-variant-numeric: tabular-nums;
   font-weight: 600;
-  line-height: 18px;
-  min-width: 28px;
+  line-height: 15px;
+  min-width: 26px;
 }
 
 .stepErr {
   background: var(--dsw-static-red-500, #e5484d);
   border-radius: 4px;
   color: #fff;
-  font-size: 10px;
+  flex: none;
+  font-size: 9px;
   font-weight: 700;
-  line-height: 14px;
-  padding: 1px 6px;
+  line-height: 12px;
+  padding: 0 5px;
 }
 
 .stepModel {
-  color: var(--dsw-alias-label-tertiary);
-  font-size: 10px;
-  line-height: 14px;
+  color: var(--dsw-alias-label-secondary);
+  font-size: 11px;
+  line-height: 15px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .stepTime {
   color: var(--dsw-alias-label-tertiary);
-  font-size: 11px;
+  flex: none;
+  font-size: 10px;
   font-variant-numeric: tabular-nums;
-  line-height: 18px;
+  line-height: 15px;
   margin-left: auto;
 }
 
 .stepDur {
-  color: var(--dsw-alias-label-secondary);
+  color: var(--dsw-alias-label-primary);
+  flex: none;
   font-size: 11px;
   font-variant-numeric: tabular-nums;
-  line-height: 18px;
+  font-weight: 600;
+  line-height: 15px;
 }
 
-/* ---- step runtime timeline ---- */
+/* ---- step runtime timeline (time-scaled) ---- */
 
 .timeline {
   background: var(--dsw-alias-bg-base, transparent);
   border: 1px solid var(--dsw-alias-border-l2);
   border-radius: 6px;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  margin-top: 6px;
+  margin-top: 3px;
   overflow: hidden;
-  padding: 4px 2px;
+  padding: 2px 2px 3px;
   position: relative;
 }
 
+/* turn-level sticky ruler: one time scale per expanded turn, parked below
+   the status bar, aligned with every step grid via --devtools-ruler-inset-x */
+.turnRuler {
+  background: var(--dsw-specific-menu, var(--dsw-alias-bg-base, transparent));
+  border-bottom: 1px solid var(--dsw-alias-border-l3);
+  flex: none;
+  /* full-width surface so scrolled step content never shows around it;
+     content inset matches step horizontal padding */
+  padding: 2px 12px 3px;
+  position: sticky;
+  top: var(--devtools-ruler-top);
+  z-index: 10; /* below the status bar (20), above step content */
+}
+
+.turnRulerTrack {
+  height: 12px;
+  margin: 0 3px; /* match timeline border + padding so ticks align with grids */
+  position: relative;
+}
+
+.timelineTick {
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 9px;
+  font-variant-numeric: tabular-nums;
+  line-height: 12px;
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+
+.timelineTickFirst {
+  transform: translateX(0);
+}
+
+.timelineTickLast {
+  transform: translateX(-100%);
+}
+
+.timelineBody {
+  position: relative;
+}
+
+/* faint vertical grid behind the bars */
+.timelineGrid {
+  bottom: 0;
+  left: 0;
+  pointer-events: none;
+  position: absolute;
+  right: 0;
+  top: 0;
+}
+
+.timelineGridLine {
+  background: var(--dsw-alias-border-l3);
+  bottom: 0;
+  opacity: 0.35;
+  position: absolute;
+  top: 0;
+  width: 1px;
+}
+
 .timelineLane {
-  height: 16px;
+  height: 12px;
   position: relative;
 }
 
@@ -408,12 +520,12 @@
   border-radius: 3px;
   box-sizing: border-box;
   display: flex;
-  font-size: 10px;
+  font-size: 9px;
   font-variant-numeric: tabular-nums;
-  height: 14px;
-  line-height: 14px;
+  height: 10px;
+  line-height: 10px;
   overflow: hidden;
-  padding: 0 5px;
+  padding: 0 4px;
   position: absolute;
   top: 1px;
   white-space: nowrap;
@@ -454,21 +566,27 @@
   text-overflow: ellipsis;
 }
 
-/* ---- step latency ---- */
+/* ---- step latency (compact inline, ·-separated) ---- */
 
 .stepLat {
-  align-items: center;
+  align-items: baseline;
   display: flex;
   flex-wrap: wrap;
-  gap: 14px;
-  margin-top: 4px;
+  margin-top: 2px;
 }
 
 .latCell {
   color: var(--dsw-alias-label-secondary);
-  font-size: 11px;
+  font-size: 10px;
   font-variant-numeric: tabular-nums;
-  line-height: 18px;
+  line-height: 14px;
+}
+
+.latCell + .latCell::before {
+  color: var(--dsw-alias-label-tertiary);
+  content: '·';
+  margin: 0 6px;
+  opacity: 0.7;
 }
 
 .latCell b {
@@ -477,43 +595,44 @@
   margin-right: 4px;
 }
 
-/* ---- badges ---- */
+/* ---- badges (semantic status colors) ---- */
 
 .badge {
   border-radius: 999px;
-  font-size: 10px;
+  flex: none;
+  font-size: 9px;
   font-weight: 600;
-  line-height: 16px;
-  padding: 0 8px;
+  line-height: 14px;
+  padding: 0 6px;
 }
 
 .statusOk { background: var(--dsw-static-green-500, #30a46c); color: #fff; }
 .statusError { background: var(--dsw-static-red-500, #e5484d); color: #fff; }
-.statusAborted { background: var(--dsw-static-orange-500, #f76b15); color: #fff; }
+.statusAborted { background: var(--dsw-alias-border-l3); color: var(--dsw-alias-label-secondary); }
 .statusMax { background: var(--dsw-static-amber-500, #f5a623); color: #222; }
 .statusRunning { background: var(--dsw-static-blue-500, #0091ff); color: #fff; }
 .statusBlocked { background: var(--dsw-alias-border-l3); color: var(--dsw-alias-label-secondary); }
 .statusUnknown { background: var(--dsw-alias-border-l3); color: var(--dsw-alias-label-tertiary); }
 
-/* ---- tools / retries ---- */
+/* ---- tools / retries (compact pills) ---- */
 
 .tools {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 6px;
+  gap: 4px;
+  margin-top: 2px;
 }
 
 .toolChip {
   align-items: center;
   background: var(--dsw-alias-interactive-bg-hover);
-  border-radius: 6px;
+  border-radius: 5px;
   color: var(--dsw-alias-label-secondary);
   display: inline-flex;
-  font-size: 11px;
-  gap: 6px;
-  line-height: 18px;
-  padding: 1px 8px;
+  font-size: 10px;
+  gap: 4px;
+  line-height: 14px;
+  padding: 0 6px;
 }
 
 .toolChip em {
@@ -534,25 +653,25 @@
 .retries {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 6px;
+  gap: 4px;
+  margin-top: 2px;
 }
 
 .retryChip {
   background: var(--dsw-static-amber-500, #f5a623);
-  border-radius: 6px;
+  border-radius: 5px;
   color: #222;
-  font-size: 10px;
+  font-size: 9px;
   font-variant-numeric: tabular-nums;
-  line-height: 16px;
-  padding: 0 8px;
+  line-height: 13px;
+  padding: 0 6px;
 }
 
 .noMsg {
   color: var(--dsw-alias-label-tertiary);
-  font-size: 11px;
-  line-height: 18px;
-  margin-top: 4px;
+  font-size: 10px;
+  line-height: 14px;
+  margin-top: 2px;
 }
 
 /* ---- hooks ---- */
@@ -561,7 +680,7 @@
   color: var(--dsw-alias-label-tertiary);
   font-size: 12px;
   line-height: 20px;
-  padding: 10px 14px;
+  padding: 8px 14px;
 }
 
 .hooksNoneHint {
@@ -584,7 +703,7 @@
   font-size: 11px;
   gap: 10px;
   line-height: 18px;
-  padding: 6px 14px;
+  padding: 5px 14px;
 }
 
 .hookRow:last-child {
@@ -627,7 +746,7 @@
     padding-right: 12px;
   }
 
-  .turnDetail {
-    max-width: 100%;
+  .turnDetailLine {
+    white-space: normal;
   }
 }

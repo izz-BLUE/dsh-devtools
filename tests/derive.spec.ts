@@ -15,12 +15,17 @@ import {
   computeSummary,
   countStepStatuses,
   defaultOpen,
+  MAX_TIMELINE_TICKS,
   meanFirstActivity,
   MIN_BAR_FRACTION,
+  niceTickIntervalMs,
   sessionWall,
   stepSpans,
   sumDecode,
   summarizeTurn,
+  tickLabel,
+  timelineTicks,
+  trackPct,
 } from '../src/client/derive.ts'
 import type { StepWire, TraceStats, TurnWire } from '../src/trace.ts'
 
@@ -334,6 +339,140 @@ describe('barGeometry', () => {
   it('never exceeds the track width', () => {
     const g = barGeometry(0, 500, 0, 1000)
     expect(g.leftPct + g.widthPct).toBeLessThanOrEqual(100)
+  })
+})
+
+/* ------------------------------------------------------------------ */
+/* Timeline time scale (ticks / ruler)                                 */
+/* ------------------------------------------------------------------ */
+
+describe('niceTickIntervalMs', () => {
+  it('uses sub-second steps for short durations', () => {
+    expect(niceTickIntervalMs(300)).toBe(250)
+    expect(niceTickIntervalMs(1_500)).toBe(250) // < 2s
+    expect(niceTickIntervalMs(1_000)).toBe(250) // exactly 1s still fits 4 ticks
+  })
+
+  it('steps up to 1s for a few seconds', () => {
+    expect(niceTickIntervalMs(5_000)).toBe(1_000)
+  })
+
+  it('steps up to 2s / 5s for tens of seconds', () => {
+    expect(niceTickIntervalMs(15_000)).toBe(2_000)
+    expect(niceTickIntervalMs(30_000)).toBe(5_000)
+  })
+
+  it('steps up to 10s+ for a minute or more', () => {
+    expect(niceTickIntervalMs(60_000)).toBe(10_000)
+    expect(niceTickIntervalMs(300_000)).toBe(60_000) // 5m -> 1m ticks
+    expect(niceTickIntervalMs(3_600_000)).toBe(600_000) // 1h -> 10m ticks
+  })
+
+  it('keeps tick counts within the cap on long durations', () => {
+    expect(niceTickIntervalMs(24 * 3_600_000)).toBeGreaterThanOrEqual(3_600_000)
+  })
+
+  it('returns 0 for degenerate durations', () => {
+    expect(niceTickIntervalMs(0)).toBe(0)
+    expect(niceTickIntervalMs(-5)).toBe(0)
+    expect(niceTickIntervalMs(Number.NaN)).toBe(0)
+    expect(niceTickIntervalMs(Number.POSITIVE_INFINITY)).toBe(0)
+    expect(niceTickIntervalMs(5_000, 0)).toBe(0)
+  })
+
+  it('respects a custom tick cap', () => {
+    // with cap 4, a 15s span no longer fits 2s ticks (8) and moves to 5s (3)
+    expect(niceTickIntervalMs(15_000, 4)).toBe(5_000)
+  })
+})
+
+describe('tickLabel', () => {
+  it('formats sub-second labels as ms', () => {
+    expect(tickLabel(0, 250)).toBe('0s')
+    expect(tickLabel(250, 250)).toBe('250ms')
+    expect(tickLabel(500, 500)).toBe('500ms')
+  })
+
+  it('formats second-scale labels compactly', () => {
+    expect(tickLabel(0, 1_000)).toBe('0s')
+    expect(tickLabel(2_000, 1_000)).toBe('2s')
+    expect(tickLabel(2_500, 1_000)).toBe('2.5s')
+    // a 500ms interval stays in ms units for consistency
+    expect(tickLabel(2_500, 500)).toBe('2500ms')
+  })
+
+  it('formats minute-scale labels compactly', () => {
+    expect(tickLabel(0, 60_000)).toBe('0s')
+    expect(tickLabel(60_000, 60_000)).toBe('1m')
+    expect(tickLabel(120_000, 60_000)).toBe('2m')
+    // a 30s interval stays in seconds units for consistency
+    expect(tickLabel(90_000, 30_000)).toBe('90s')
+  })
+})
+
+describe('timelineTicks', () => {
+  it('emits aligned ticks with relative labels over a short span', () => {
+    const ticks = timelineTicks(0, 300)
+    expect(ticks.map(t => t.at)).toEqual([0, 250])
+    expect(ticks.map(t => t.label)).toEqual(['0s', '250ms'])
+  })
+
+  it('scales a few seconds to 1s ticks', () => {
+    const ticks = timelineTicks(0, 5_000)
+    expect(ticks.map(t => t.at)).toEqual([0, 1_000, 2_000, 3_000, 4_000, 5_000])
+  })
+
+  it('anchors labels relative to tMin, not to 0', () => {
+    const ticks = timelineTicks(10_000, 15_000)
+    expect(ticks[0]).toEqual({ at: 10_000, label: '0s' })
+    expect(ticks[ticks.length - 1].at).toBe(15_000)
+    expect(ticks[ticks.length - 1].label).toBe('5s')
+  })
+
+  it('anchors the ruler at tMin even when tMin is off the wall-clock grid', () => {
+    // tMin is not a multiple of the interval — the ruler must still start at 0s
+    const ticks = timelineTicks(12_345, 17_345)
+    expect(ticks[0]).toEqual({ at: 12_345, label: '0s' })
+    expect(ticks.map(t => t.at)).toEqual([12_345, 13_345, 14_345, 15_345, 16_345, 17_345])
+    expect(ticks.map(t => t.label)).toEqual(['0s', '1s', '2s', '3s', '4s', '5s'])
+  })
+
+  it('handles 60s+ spans with minute-scale ticks', () => {
+    const ticks = timelineTicks(0, 60_000)
+    expect(ticks.every(t => t.at % 10_000 === 0)).toBe(true)
+    expect(ticks.length).toBeLessThanOrEqual(MAX_TIMELINE_TICKS + 1)
+  })
+
+  it('returns empty for degenerate or missing spans', () => {
+    expect(timelineTicks(0, 0)).toEqual([])
+    expect(timelineTicks(5_000, 1_000)).toEqual([])
+    expect(timelineTicks(Number.NaN, 5_000)).toEqual([])
+  })
+})
+
+describe('trackPct', () => {
+  it('maps absolute times onto the track as percentages', () => {
+    expect(trackPct(10_000, 10_000, 20_000)).toBe(0)
+    expect(trackPct(15_000, 10_000, 20_000)).toBe(50)
+    expect(trackPct(20_000, 10_000, 20_000)).toBe(100)
+  })
+
+  it('handles times outside the window without dividing by zero', () => {
+    // ruler/grid positions are clamped by the caller; the helper itself
+    // just maps the linear position (may be <0 or >100).
+    expect(trackPct(0, 10_000, 20_000)).toBe(-100)
+    expect(trackPct(30_000, 10_000, 20_000)).toBe(200)
+  })
+
+  it('falls back to a 1ms track on degenerate windows', () => {
+    expect(trackPct(10_000, 10_000, 10_000)).toBe(0)
+    expect(trackPct(10_001, 10_000, 10_000)).toBe(100)
+  })
+
+  it('matches barGeometry left position on the same window', () => {
+    const at = 12_000
+    const left = trackPct(at, 10_000, 20_000)
+    expect(barGeometry(at, 13_000, 10_000, 20_000).leftPct).toBe(left)
   })
 })
 

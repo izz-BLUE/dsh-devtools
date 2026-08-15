@@ -37,7 +37,10 @@ import {
   defaultOpen,
   stepSpans,
   summarizeTurn,
+  timelineTicks,
+  trackPct,
 } from './derive.ts'
+import type { TimelineTick } from './derive.ts'
 import css from './devtools.module.css'
 
 export type { TraceSnapshot, TurnWire } from '../trace.ts'
@@ -62,7 +65,8 @@ type Translate = (key: keyof DevtoolsKey, params?: Record<string, string | numbe
 /** Status badge class + label key. */
 function statusOf(status: string): { cls: string; label: keyof DevtoolsKey } {
   switch (status) {
-    case 'ok': return { cls: css.statusOk, label: 'status.ok' }
+    case 'ok':
+    case 'completed': return { cls: css.statusOk, label: 'status.ok' }
     case 'error': return { cls: css.statusError, label: 'status.error' }
     case 'aborted': return { cls: css.statusAborted, label: 'status.aborted' }
     case 'max-tokens': return { cls: css.statusMax, label: 'status.max-tokens' }
@@ -91,6 +95,28 @@ export function makeTraceView(ctx: ClientContext, t: Translate) {
     const [error, setError] = useState<string | null>(null)
     const dataRef = useRef<TraceSnapshot | null>(data)
     useEffect(() => { dataRef.current = data }, [data])
+    const rootRef = useRef<HTMLDivElement>(null)
+
+    /* Keep the turn ruler parked below the sticky status bar even when the
+       bar wraps to two lines: measure its live height and publish the
+       derived sticky top as a CSS variable (the stylesheet keeps a static
+       single-line fallback for the first paint). */
+    useEffect(() => {
+      const rootEl = rootRef.current
+      if (rootEl === null) return undefined
+      const statusBarEl = rootEl.querySelector<HTMLElement>('[class*="statusBar"]')
+      if (statusBarEl === null) return undefined
+      const update = (): void => {
+        const cs = getComputedStyle(rootEl)
+        const top = parseFloat(cs.getPropertyValue('--devtools-statusbar-top')) || 8
+        const h = statusBarEl.getBoundingClientRect().height
+        rootEl.style.setProperty('--devtools-ruler-top', `${top + h + 4}px`)
+      }
+      update()
+      const ro = new ResizeObserver(update)
+      ro.observe(statusBarEl)
+      return () => ro.disconnect()
+    }, [data])
 
     useEffect(() => {
       if (typeof sessionId !== 'string' || sessionId === '' || rpc === undefined) return undefined
@@ -144,16 +170,15 @@ export function makeTraceView(ctx: ClientContext, t: Translate) {
     }
 
     return (
-      <div className={css.root}>
+      <div className={css.root} ref={rootRef}>
         <StatusBar stats={stats} turns={turns} summary={summary} t={t} />
 
-        {/* trace completeness */}
-        {data.droppedSteps > 0
-          ? <div className={`${css.banner} ${css.bannerPartial}`}>{t('trace.partial', { count: data.droppedSteps })}</div>
-          : <div className={`${css.banner} ${css.bannerFull}`}>{t('trace.complete')}</div>}
-
-        {/* session metadata */}
+        {/* session metadata + trace completeness (quiet when complete, loud when partial) */}
         <div className={css.metaRow}>
+          <span className={`${css.traceStatus} ${data.droppedSteps > 0 ? css.traceStatusPartial : ''}`}>
+            <span className={css.traceDot} aria-hidden="true" />
+            {data.droppedSteps > 0 ? t('trace.partial', { count: data.droppedSteps }) : t('trace.complete')}
+          </span>
           {meta.model !== undefined ? <span className={css.metaChip}><b>{t('meta.model')}</b> {meta.model}</span> : null}
           {meta.provider !== undefined ? <span className={css.metaChip}><b>{t('meta.provider')}</b> {meta.provider}</span> : null}
           {meta.contextWindow !== undefined
@@ -250,8 +275,8 @@ export function makeTraceView(ctx: ClientContext, t: Translate) {
 function stat(label: string, value: string, sub?: string, tip?: string): JSX.Element {
   return (
     <div className={css.stat} title={tip}>
-      <span className={css.statLabel}>{label}</span>
       <b className={css.statValue}>{value}</b>
+      <span className={css.statLabel}>{label}</span>
       {sub !== undefined ? <span className={css.statSub}>{sub}</span> : null}
     </div>
   )
@@ -324,6 +349,7 @@ function TurnCard(props: { turn: TurnWire; t: Translate; defaultOpen: boolean })
   const reasonCls = turn.reason !== undefined ? statusOf(turn.reason.kind).cls : css.statusRunning
   const sum = summarizeTurn(turn)
   const win = turnWindow(turn)
+  const ticks = timelineTicks(win.tMin, win.tMax)
   return (
     <div className={css.card}>
       <div
@@ -336,7 +362,6 @@ function TurnCard(props: { turn: TurnWire; t: Translate; defaultOpen: boolean })
       >
         <span className={`${css.chevron} ${collapsed ? '' : css.chevronOpen}`} />
         <span className={css.turnTitle}>{t('turn.title')} {turn.turn}</span>
-        <span className={css.turnMeta}>{fmtTime(turn.startAt)}</span>
         {open
           ? <span className={`${css.badge} ${css.statusRunning}`}>{t('turn.open')}</span>
           : (
@@ -347,15 +372,44 @@ function TurnCard(props: { turn: TurnWire; t: Translate; defaultOpen: boolean })
         <span className={css.turnMeta} title={t('tip.turnTools')}>
           {t('turn.steps')} {sum.steps} · {t('turn.tools')} {sum.toolCalls}
         </span>
-        {turn.endAt !== undefined
-          ? <span className={css.turnMeta}>{fmtMs(turn.endAt - turn.startAt)}</span>
+        {sum.wallMs !== undefined
+          ? <span className={css.turnDur}>{fmtMs(sum.wallMs)}</span>
           : null}
-        {turn.reason?.detail !== undefined ? <span className={css.turnDetail} title={turn.reason.detail}>{turn.reason.detail.slice(0, 120)}</span> : null}
       </div>
+      {turn.reason?.detail !== undefined
+        ? (
+          <div className={`${css.turnDetailLine} ${turn.reason.kind === 'error' ? css.turnDetailLineError : ''}`} title={turn.reason.detail}>
+            {turn.reason.detail}
+          </div>
+        )
+        : null}
       {!collapsed
         ? (
           <div className={css.steps}>
-            {turn.steps.map((step) => <StepRow key={step.seq} step={step} t={t} window={win} />)}
+            {ticks.length > 0
+              ? (
+                <div className={css.turnRuler}>
+                  <div className={css.turnRulerTrack}>
+                    {ticks.map((tick, i) => {
+                      const first = i === 0
+                      const last = i === ticks.length - 1
+                      return (
+                        <span
+                          key={tick.at}
+                          className={`${css.timelineTick} ${first ? css.timelineTickFirst : ''} ${last ? css.timelineTickLast : ''}`}
+                          style={{ left: `${trackPct(tick.at, win.tMin, win.tMax)}%` }}
+                        >
+                          {tick.label}
+                        </span>
+                      )
+                    })}
+                  </div>
+                </div>
+              )
+              : null}
+            {turn.steps.map((step) => (
+              <StepRow key={step.seq} step={step} t={t} window={win} ticks={ticks} />
+            ))}
           </div>
         )
         : null}
@@ -383,21 +437,27 @@ function turnWindow(turn: TurnWire): { tMin: number; tMax: number } {
 /* ------------------------------------------------------------------ */
 
 /** One step row: outcome, latency, usage, tools, retries + duration bars. */
-function StepRow(props: { step: StepWire; t: Translate; window: { tMin: number; tMax: number } }): JSX.Element {
-  const { step, t } = props
+function StepRow(props: {
+  step: StepWire
+  t: Translate
+  window: { tMin: number; tMax: number }
+  ticks: readonly TimelineTick[]
+}): JSX.Element {
+  const { step, t, ticks } = props
   const win = props.window
   const st = statusOf(step.status)
   const running = step.status === 'running'
   const spans = stepSpans(step, win.tMax)
   const lanes = assignLanes(spans)
   const spanMax = win.tMax > win.tMin ? win.tMax : win.tMin + 1
+  const pct = (at: number): number => trackPct(at, win.tMin, win.tMax)
   return (
     <div className={`${css.step} ${running ? css.stepRunning : ''}`}>
       <div className={css.stepHead}>
         <span className={css.stepId}>S{step.step}</span>
         <span className={`${css.badge} ${st.cls}`}>{t(st.label)}</span>
         {step.error !== undefined ? <span className={css.stepErr} title={step.error.message}>{step.error.code}</span> : null}
-        {step.model !== undefined ? <span className={css.stepModel}>{step.model}</span> : null}
+        {step.model !== undefined ? <span className={css.stepModel} title={step.model}>{step.model}</span> : null}
         <span className={css.stepTime}>{fmtTime(step.startAt)}</span>
         <span className={css.stepDur}>{fmtMs(step.wallMs)}</span>
       </div>
@@ -405,31 +465,42 @@ function StepRow(props: { step: StepWire; t: Translate; window: { tMin: number; 
       {lanes.length > 0
         ? (
           <div className={css.timeline}>
-            {lanes.map(({ span, lane }) => {
-              const g = barGeometry(span.start, span.end, win.tMin, spanMax)
-              const label = span.kind === 'model'
-                ? `${t('step.model')} ${fmtMs(span.durationMs)}`
-                : `${span.toolName ?? '?'} ${fmtMs(span.durationMs)}`
-              const tip = span.kind === 'model'
-                ? `${t('step.model')} ${fmtMs(span.durationMs)}${span.running ? ` (${t('status.running')})` : ''}`
-                : `${span.toolName ?? '?'} ${fmtMs(span.durationMs)}${span.running ? ` (${t('status.running')})` : ''}${span.error ? ' ERR' : ''}`
-              return (
-                <div className={css.timelineLane} key={span.id}>
-                  <div
-                    className={[
-                      css.timelineBar,
-                      span.kind === 'model' ? css.barModel : css.barTool,
-                      span.error ? css.barError : '',
-                      span.running ? css.barRunning : '',
-                    ].join(' ')}
-                    style={{ left: `${g.leftPct}%`, width: `${g.widthPct}%` }}
-                    title={tip}
-                  >
-                    <span className={css.barLabel}>{label}</span>
+            <div className={css.timelineBody}>
+              {ticks.length > 0
+                ? (
+                  <div className={css.timelineGrid} aria-hidden="true">
+                    {ticks.map((tick) => (
+                      <span key={tick.at} className={css.timelineGridLine} style={{ left: `${pct(tick.at)}%` }} />
+                    ))}
                   </div>
-                </div>
-              )
-            })}
+                )
+                : null}
+              {lanes.map(({ span: s, lane }) => {
+                const g = barGeometry(s.start, s.end, win.tMin, spanMax)
+                const label = s.kind === 'model'
+                  ? `${t('step.model')} ${fmtMs(s.durationMs)}`
+                  : `${s.toolName ?? '?'} ${fmtMs(s.durationMs)}`
+                const tip = s.kind === 'model'
+                  ? `${t('step.model')} ${fmtMs(s.durationMs)}${s.running ? ` (${t('status.running')})` : ''}`
+                  : `${s.toolName ?? '?'} ${fmtMs(s.durationMs)}${s.running ? ` (${t('status.running')})` : ''}${s.error ? ' ERR' : ''}`
+                return (
+                  <div className={css.timelineLane} key={s.id}>
+                    <div
+                      className={[
+                        css.timelineBar,
+                        s.kind === 'model' ? css.barModel : css.barTool,
+                        s.error ? css.barError : '',
+                        s.running ? css.barRunning : '',
+                      ].join(' ')}
+                      style={{ left: `${g.leftPct}%`, width: `${g.widthPct}%` }}
+                      title={tip}
+                    >
+                      <span className={css.barLabel}>{label}</span>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
           </div>
         )
         : null}
