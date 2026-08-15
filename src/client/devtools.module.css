@@ -1,0 +1,633 @@
+/**
+ * DevTools view styles — DSH design tokens only (--dsw-*), no framework.
+ *
+ * V0.1.1 Profiler UX: wide layout, summary groups, timeline bars, sticky
+ * status bar, and a strong-but-themed background mask so the profiler stays
+ * readable over high-detail user wallpapers (skin-independent: tokens only,
+ * no skin coupling).
+ *
+ * @module dsh-devtools/client/devtools.module.css
+ */
+
+/* ---- root / wide layout ---- */
+
+.root {
+  box-sizing: border-box;
+  color: var(--dsw-alias-label-primary);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 0 auto;
+  /* Wide but bounded: use most of the viewport on desktop, fall back to a
+     single readable column on narrow windows (clamp handles both). */
+  max-width: clamp(680px, calc(100vw - 48px), 1720px);
+  padding: 16px clamp(16px, 3vw, 40px) 48px;
+  width: 100%;
+  /* Readability mask over high-detail backgrounds. Theme tokens only;
+     never overrides the user background, just softens what is behind. */
+  background: var(--dsw-specific-menu, var(--dsw-alias-bg-base, transparent));
+  border: 1px solid var(--dsw-alias-border-l2);
+  border-radius: 14px;
+  -webkit-backdrop-filter: blur(10px) saturate(1.15);
+  backdrop-filter: blur(10px) saturate(1.15);
+}
+
+.empty {
+  border: 1px solid var(--dsw-alias-border-l3);
+  border-radius: 12px;
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 13px;
+  line-height: 22px;
+  padding: 32px 24px;
+  text-align: center;
+}
+
+.emptyTitle {
+  color: var(--dsw-alias-label-primary);
+  font-size: 15px;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+.emptyHint {
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 12px;
+}
+
+.footer {
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 11px;
+  line-height: 18px;
+  text-align: center;
+}
+
+/* ---- sticky runtime status bar ---- */
+
+.statusBar {
+  align-items: center;
+  background: var(--dsw-specific-menu, var(--dsw-alias-bg-base, transparent));
+  border: 1px solid var(--dsw-alias-border-l2);
+  border-radius: 10px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.18);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 11px;
+  gap: 4px 14px;
+  line-height: 18px;
+  padding: 6px 12px;
+  position: sticky;
+  top: 8px;
+  z-index: 20;
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+}
+
+.statusBarItem {
+  color: var(--dsw-alias-label-secondary);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.statusBarItem b {
+  color: var(--dsw-alias-label-tertiary);
+  font-weight: 500;
+  margin-right: 4px;
+}
+
+.statusBarSep {
+  color: var(--dsw-alias-border-l3);
+  margin: 0 7px;
+}
+
+.statusBarLive {
+  color: var(--dsw-static-blue-500, #0091ff);
+  font-weight: 600;
+}
+
+/* hide secondary items on narrow screens */
+@media (max-width: 900px) {
+  .statusBarSec {
+    display: none;
+  }
+}
+
+/* ---- trace completeness banner ---- */
+
+.banner {
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 18px;
+  padding: 4px 10px;
+}
+
+.bannerFull {
+  background: var(--dsw-static-green-500, #30a46c);
+  color: #fff;
+}
+
+.bannerPartial {
+  background: var(--dsw-static-orange-500, #f76b15);
+  color: #fff;
+}
+
+/* ---- session metadata ---- */
+
+.metaRow {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.metaChip {
+  background: var(--dsw-alias-interactive-bg-hover);
+  border-radius: 6px;
+  color: var(--dsw-alias-label-secondary);
+  font-size: 11px;
+  line-height: 18px;
+  padding: 2px 8px;
+}
+
+.metaChip b {
+  color: var(--dsw-alias-label-tertiary);
+  font-weight: 500;
+  margin-right: 4px;
+}
+
+/* ---- summary groups ---- */
+
+.summaryGroups {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+@media (max-width: 1280px) {
+  .summaryGroups {
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  }
+}
+
+@media (max-width: 700px) {
+  .summaryGroups {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.summaryCard {
+  border: 1px solid var(--dsw-alias-border-l3);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.summaryTitle {
+  background: var(--dsw-alias-interactive-bg-hover);
+  border-bottom: 1px solid var(--dsw-alias-border-l3);
+  color: var(--dsw-alias-label-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 20px;
+  padding: 8px 12px;
+}
+
+/* ---- aggregates ---- */
+
+.statsGrid {
+  display: grid;
+  gap: 1px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+@media (min-width: 1500px) {
+  .statsGrid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.stat {
+  background: var(--dsw-specific-menu, var(--dsw-alias-bg-base, transparent));
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 10px;
+}
+
+.statLabel {
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 10px;
+  line-height: 14px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.statValue {
+  font-size: 15px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  line-height: 20px;
+}
+
+.statSub {
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 10px;
+  line-height: 14px;
+}
+
+/* ---- cards / turns ---- */
+
+.card {
+  border: 1px solid var(--dsw-alias-border-l3);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.cardTitle {
+  color: var(--dsw-alias-label-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 20px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--dsw-alias-border-l3);
+  background: var(--dsw-alias-interactive-bg-hover);
+}
+
+.turns {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.turnHeader {
+  align-items: center;
+  cursor: pointer;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--dsw-alias-border-l3);
+  background: var(--dsw-alias-interactive-bg-hover);
+  user-select: none;
+}
+
+.turnHeader:hover {
+  background: var(--dsw-alias-interactive-bg-active);
+}
+
+.turnHeaderCollapsed {
+  border-bottom: none;
+}
+
+/* CSS-only chevron (no emoji glyphs in this repo) */
+.chevron {
+  border-left: 4px solid var(--dsw-alias-label-tertiary);
+  border-bottom: 4px solid var(--dsw-alias-label-tertiary);
+  box-sizing: border-box;
+  height: 8px;
+  margin: 0 2px;
+  transform: rotate(-45deg);
+  transition: transform 0.12s ease;
+  width: 8px;
+}
+
+.chevronOpen {
+  transform: rotate(45deg);
+}
+
+.turnTitle {
+  color: var(--dsw-alias-label-primary);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 20px;
+}
+
+.turnMeta {
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  line-height: 18px;
+}
+
+.turnDetail {
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 11px;
+  line-height: 18px;
+  max-width: 40%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.steps {
+  display: flex;
+  flex-direction: column;
+}
+
+.step {
+  border-bottom: 1px solid var(--dsw-alias-border-l2);
+  padding: 8px 14px;
+}
+
+.step:last-child {
+  border-bottom: none;
+}
+
+.stepRunning {
+  background: color-mix(in srgb, var(--dsw-static-blue-500, #0091ff) 6%, transparent);
+}
+
+.stepHead {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.stepId {
+  color: var(--dsw-alias-label-secondary);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  line-height: 18px;
+  min-width: 28px;
+}
+
+.stepErr {
+  background: var(--dsw-static-red-500, #e5484d);
+  border-radius: 4px;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 14px;
+  padding: 1px 6px;
+}
+
+.stepModel {
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 10px;
+  line-height: 14px;
+}
+
+.stepTime {
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  line-height: 18px;
+  margin-left: auto;
+}
+
+.stepDur {
+  color: var(--dsw-alias-label-secondary);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  line-height: 18px;
+}
+
+/* ---- step runtime timeline ---- */
+
+.timeline {
+  background: var(--dsw-alias-bg-base, transparent);
+  border: 1px solid var(--dsw-alias-border-l2);
+  border-radius: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 6px;
+  overflow: hidden;
+  padding: 4px 2px;
+  position: relative;
+}
+
+.timelineLane {
+  height: 16px;
+  position: relative;
+}
+
+.timelineBar {
+  align-items: center;
+  border-radius: 3px;
+  box-sizing: border-box;
+  display: flex;
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  height: 14px;
+  line-height: 14px;
+  overflow: hidden;
+  padding: 0 5px;
+  position: absolute;
+  top: 1px;
+  white-space: nowrap;
+}
+
+.barModel {
+  background: var(--dsw-static-blue-500, #0091ff);
+  color: #fff;
+}
+
+.barTool {
+  background: var(--dsw-static-green-500, #30a46c);
+  color: #fff;
+}
+
+.barError {
+  background: repeating-linear-gradient(
+    -45deg,
+    var(--dsw-static-red-500, #e5484d),
+    var(--dsw-static-red-500, #e5484d) 4px,
+    #8f2327 4px,
+    #8f2327 8px
+  );
+  border: 1px solid #a33a3f;
+}
+
+.barRunning {
+  animation: barPulse 1.2s ease-in-out infinite;
+}
+
+@keyframes barPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}
+
+.barLabel {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ---- step latency ---- */
+
+.stepLat {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-top: 4px;
+}
+
+.latCell {
+  color: var(--dsw-alias-label-secondary);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  line-height: 18px;
+}
+
+.latCell b {
+  color: var(--dsw-alias-label-tertiary);
+  font-weight: 500;
+  margin-right: 4px;
+}
+
+/* ---- badges ---- */
+
+.badge {
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 16px;
+  padding: 0 8px;
+}
+
+.statusOk { background: var(--dsw-static-green-500, #30a46c); color: #fff; }
+.statusError { background: var(--dsw-static-red-500, #e5484d); color: #fff; }
+.statusAborted { background: var(--dsw-static-orange-500, #f76b15); color: #fff; }
+.statusMax { background: var(--dsw-static-amber-500, #f5a623); color: #222; }
+.statusRunning { background: var(--dsw-static-blue-500, #0091ff); color: #fff; }
+.statusBlocked { background: var(--dsw-alias-border-l3); color: var(--dsw-alias-label-secondary); }
+.statusUnknown { background: var(--dsw-alias-border-l3); color: var(--dsw-alias-label-tertiary); }
+
+/* ---- tools / retries ---- */
+
+.tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.toolChip {
+  align-items: center;
+  background: var(--dsw-alias-interactive-bg-hover);
+  border-radius: 6px;
+  color: var(--dsw-alias-label-secondary);
+  display: inline-flex;
+  font-size: 11px;
+  gap: 6px;
+  line-height: 18px;
+  padding: 1px 8px;
+}
+
+.toolChip em {
+  color: var(--dsw-alias-label-tertiary);
+  font-style: normal;
+  font-variant-numeric: tabular-nums;
+}
+
+.toolChip b {
+  color: var(--dsw-static-red-500, #e5484d);
+  font-weight: 700;
+}
+
+.toolChipErr {
+  border: 1px solid var(--dsw-static-red-500, #e5484d);
+}
+
+.retries {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.retryChip {
+  background: var(--dsw-static-amber-500, #f5a623);
+  border-radius: 6px;
+  color: #222;
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  line-height: 16px;
+  padding: 0 8px;
+}
+
+.noMsg {
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 11px;
+  line-height: 18px;
+  margin-top: 4px;
+}
+
+/* ---- hooks ---- */
+
+.hooksNone {
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 12px;
+  line-height: 20px;
+  padding: 10px 14px;
+}
+
+.hooksNoneHint {
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 11px;
+  line-height: 18px;
+  margin-top: 2px;
+  opacity: 0.75;
+}
+
+.hookTable {
+  display: flex;
+  flex-direction: column;
+}
+
+.hookRow {
+  align-items: center;
+  border-bottom: 1px solid var(--dsw-alias-border-l2);
+  display: flex;
+  font-size: 11px;
+  gap: 10px;
+  line-height: 18px;
+  padding: 6px 14px;
+}
+
+.hookRow:last-child {
+  border-bottom: none;
+}
+
+.hookName {
+  color: var(--dsw-alias-label-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.hookPlugin {
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.hookTime {
+  color: var(--dsw-alias-label-tertiary);
+  font-variant-numeric: tabular-nums;
+  margin-left: auto;
+}
+
+.hookDur {
+  color: var(--dsw-alias-label-secondary);
+  font-variant-numeric: tabular-nums;
+  min-width: 48px;
+  text-align: right;
+}
+
+.hookErr {
+  color: var(--dsw-static-red-500, #e5484d);
+  font-weight: 700;
+}
+
+/* ---- responsive: single column, no page-level horizontal scroll ---- */
+
+@media (max-width: 700px) {
+  .root {
+    max-width: 100%;
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+
+  .turnDetail {
+    max-width: 100%;
+  }
+}

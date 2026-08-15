@@ -1,0 +1,10 @@
+# dsh-devtools bundle patch: inserts its plugin row into the web profile
+# roster. The bundle is the official dsh plugin shape — install it with
+# `dsh plugin --profile <name> add <path-or-git-url>`.
+#
+# The single row mounts BOTH halves: the host side (Agent Runtime Trace
+# fold + /dsh-devtools RPC channel) and the browser side (the DevTools
+# conversation.view tab, via the dsh.client declaration in package.json).
+- insert:
+    - id: dsh-devtools
+      name: 'dsh-devtools'
